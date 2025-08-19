@@ -66,7 +66,7 @@
   </style>
 </head>
 <body>
-  <header>🤖 مساعدي الذكي</header>
+  <header>Vex assistant</header>
   <main id="chat"></main>
   <form id="composer">
     <input type="text" id="prompt" placeholder="اكتب رسالتك..." autocomplete="off">
@@ -74,75 +74,64 @@
   </form>
 
   <!-- مكتبة الذكاء الاصطناعي -->
-  <script type="module">
-    import { pipeline } from "https://cdn.jsdelivr.net/npm/@xenova/transformers@2.5.1";
+<script type="module">
+  import { pipeline } from "https://cdn.jsdelivr.net/npm/@xenova/transformers@2.5.1";
 
-    const chat = document.getElementById("chat");
-    const form = document.getElementById("composer");
-    const promptInput = document.getElementById("prompt");
+  const chat = document.getElementById("chat");
+  const form = document.getElementById("composer");
+  const promptInput = document.getElementById("prompt");
 
-    let history = JSON.parse(localStorage.getItem("chat-history") || "[]");
-    let generator = null;
+  let history = JSON.parse(localStorage.getItem("chat-history") || "[]");
+  let generator = null;
 
-    function renderMessage(role, text) {
-      const div = document.createElement("div");
-      div.className = `message ${role}`;
-      div.textContent = text;
-      chat.appendChild(div);
-      chat.scrollTop = chat.scrollHeight;
+  function renderMessage(role, text) {
+    const div = document.createElement("div");
+    div.className = `message ${role}`;
+    div.textContent = text;
+    chat.appendChild(div);
+    chat.scrollTop = chat.scrollHeight;
+  }
+
+  history.forEach(msg => renderMessage(msg.role, msg.text));
+
+  async function initModel() {
+    renderMessage("bot", "⏳ جاري تحميل المساعد الخفيف...");
+    // ✅ استخدام نسخة صغيرة أسرع
+    generator = await pipeline("text2text-generation", "Xenova/LaMini-Flan-T5-77M");
+    renderMessage("bot", "✅ تم تحميل المساعد، اكتب رسالتك!");
+  }
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const userText = promptInput.value.trim();
+    if (!userText) return;
+
+    renderMessage("user", userText);
+    history.push({ role: "user", text: userText });
+    promptInput.value = "";
+
+    const thinking = document.createElement("div");
+    thinking.className = "message bot";
+    thinking.textContent = "... جاري التفكير";
+    chat.appendChild(thinking);
+    chat.scrollTop = chat.scrollHeight;
+
+    try {
+      const output = await generator(userText, {
+        max_new_tokens: 80
+      });
+      chat.removeChild(thinking);
+      renderMessage("bot", output[0].generated_text);
+      history.push({ role: "bot", text: output[0].generated_text });
+    } catch (err) {
+      chat.removeChild(thinking);
+      renderMessage("bot", "⚠️ حدث خطأ: " + err.message);
     }
 
-    history.forEach(msg => renderMessage(msg.role, msg.text));
+    localStorage.setItem("chat-history", JSON.stringify(history));
+  });
 
-    async function initModel() {
-      renderMessage("bot", "⏳ جاري تحميل النموذج...");
-      // تغيير الموديل لموديل GPT2 خفيف
-      generator = await pipeline("text-generation", "Xenova/distilgpt2");
-      renderMessage("bot", "✅ تم تحميل المساعد، اكتب رسالتك!");
-    }
-
-    form.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const userText = promptInput.value.trim();
-      if (!userText) return;
-
-      renderMessage("user", userText);
-      history.push({ role: "user", text: userText });
-      promptInput.value = "";
-
-      const thinking = document.createElement("div");
-      thinking.className = "message bot";
-      thinking.textContent = "... جاري التفكير";
-      chat.appendChild(thinking);
-      chat.scrollTop = chat.scrollHeight;
-
-      try {
-        const output = await generator(userText, {
-          max_new_tokens: 50,
-          do_sample: true,
-          temperature: 0.7,
-        });
-        chat.removeChild(thinking);
-        renderMessage("bot", output[0].generated_text);
-        history.push({ role: "bot", text: output[0].generated_text });
-      } catch (err) {
-        chat.removeChild(thinking);
-        renderMessage("bot", "⚠️ حدث خطأ: " + err.message);
-      }
-
-      localStorage.setItem("chat-history", JSON.stringify(history));
-    });
-
-    initModel();
-  </script>
-
-  <!-- تسجيل الـ Service Worker -->
-  <script>
-    if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("service-worker.js")
-        .then(() => console.log("✅ Service Worker مسجّل"))
-        .catch(err => console.error("⚠️ Service Worker فشل:", err));
-    }
-  </script>
+  initModel();
+</script>
 </body>
 </html>
