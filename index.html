@@ -1,0 +1,105 @@
+<!doctype html>
+
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>مساعدي الذكي – Zyneo</title>
+  <style>
+    :root {
+      --bg: #0b1220;
+      --panel: #0f172a;
+      --text: #e2e8f0;
+      --accent: #22c55e;
+      --bubble-user: #1e293b;
+      --bubble-bot: #0b3d2e;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, Cairo, Arial;
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+    .app { display: flex; flex-direction: column; flex: 1; }
+    .app__header { padding: 12px; background: var(--panel); text-align: center; }
+    .chat { flex: 1; padding: 12px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+    .message { padding: 10px 14px; border-radius: 12px; max-width: 75%; line-height: 1.5; }
+    .message.user { align-self: flex-end; background: var(--bubble-user); }
+    .message.bot { align-self: flex-start; background: var(--bubble-bot); }
+    .composer { display: flex; border-top: 1px solid #222; }
+    .input { flex: 1; padding: 10px; border: none; outline: none; background: #1e293b; color: var(--text); }
+    .btn { background: var(--accent); border: none; padding: 10px 16px; cursor: pointer; color: white; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="app__header">
+      <h1>🤖 Vex – Open Source Assistant</h1>
+    </header><main class="chat" id="chat"></main>
+
+<form id="composer" class="composer">
+  <input id="prompt" class="input" placeholder="اكتب سؤالك..." autocomplete="off" />
+  <button id="sendBtn" class="btn" type="submit">إرسال</button>
+</form>
+
+  </div>  <script type="module">
+    import { pipeline } from "https://cdn.jsdelivr.net/npm/@xenova/transformers@2.5.1";
+
+    const chat = document.getElementById("chat");
+    const form = document.getElementById("composer");
+    const promptInput = document.getElementById("prompt");
+
+    let history = JSON.parse(localStorage.getItem("chat-history") || "[]");
+
+    function renderMessage(role, text) {
+      const div = document.createElement("div");
+      div.className = `message ${role}`;
+      div.textContent = text;
+      chat.appendChild(div);
+      chat.scrollTop = chat.scrollHeight;
+    }
+
+    history.forEach(msg => renderMessage(msg.role, msg.text));
+
+    async function initModel() {
+      renderMessage("bot", "⏳ جاري تحميل النموذج...");
+      window.generator = await pipeline("text2text-generation", "Xenova/LaMini-Flan-T5-248M");
+      renderMessage("bot", "✅ تم تحميل المساعد، اسألني ما تشاء!");
+    }
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const userText = promptInput.value.trim();
+      if (!userText) return;
+
+      renderMessage("user", userText);
+      history.push({ role: "user", text: userText });
+
+      promptInput.value = "";
+
+      const thinking = document.createElement("div");
+      thinking.className = "message bot";
+      thinking.textContent = "... جاري التفكير";
+      chat.appendChild(thinking);
+      chat.scrollTop = chat.scrollHeight;
+
+      try {
+        const output = await window.generator(userText, { max_new_tokens: 100 });
+        chat.removeChild(thinking);
+        renderMessage("bot", output[0].generated_text);
+        history.push({ role: "bot", text: output[0].generated_text });
+      } catch (err) {
+        chat.removeChild(thinking);
+        renderMessage("bot", "⚠️ حدث خطأ: " + err.message);
+      }
+
+      localStorage.setItem("chat-history", JSON.stringify(history));
+    });
+
+    initModel();
+  </script></body>
+</html>
