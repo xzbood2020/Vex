@@ -46,60 +46,60 @@
   <button id="sendBtn" class="btn" type="submit">إرسال</button>
 </form>
 
-  </div>  <script type="module">
-    import { pipeline } from "https://cdn.jsdelivr.net/npm/@xenova/transformers@2.5.1";
+  </div> <script type="module">
+  import { pipeline } from "https://cdn.jsdelivr.net/npm/@xenova/transformers@2.5.1";
 
-    const chat = document.getElementById("chat");
-    const form = document.getElementById("composer");
-    const promptInput = document.getElementById("prompt");
+  const chat = document.getElementById("chat");
+  const form = document.getElementById("composer");
+  const promptInput = document.getElementById("prompt");
 
-    let history = JSON.parse(localStorage.getItem("chat-history") || "[]");
+  let history = JSON.parse(localStorage.getItem("chat-history") || "[]");
+  let generator = null;
 
-    function renderMessage(role, text) {
-      const div = document.createElement("div");
-      div.className = `message ${role}`;
-      div.textContent = text;
-      chat.appendChild(div);
-      chat.scrollTop = chat.scrollHeight;
+  function renderMessage(role, text) {
+    const div = document.createElement("div");
+    div.className = `message ${role}`;
+    div.textContent = text;
+    chat.appendChild(div);
+    chat.scrollTop = chat.scrollHeight;
+  }
+
+  history.forEach(msg => renderMessage(msg.role, msg.text));
+
+  async function initModel() {
+    renderMessage("bot", "⏳ جاري تحميل النموذج...");
+    generator = await pipeline("text2text-generation", "Xenova/LaMini-Flan-T5-248M");
+    renderMessage("bot", "✅ تم تحميل المساعد، اسألني ما تشاء!");
+  }
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const userText = promptInput.value.trim();
+    if (!userText) return;
+
+    renderMessage("user", userText);
+    history.push({ role: "user", text: userText });
+    promptInput.value = "";
+
+    const thinking = document.createElement("div");
+    thinking.className = "message bot";
+    thinking.textContent = "... جاري التفكير";
+    chat.appendChild(thinking);
+    chat.scrollTop = chat.scrollHeight;
+
+    try {
+      const output = await generator(userText, { max_new_tokens: 100 }); // ✅ التصحيح هنا
+      chat.removeChild(thinking);
+      renderMessage("bot", output[0].generated_text);
+      history.push({ role: "bot", text: output[0].generated_text });
+    } catch (err) {
+      chat.removeChild(thinking);
+      renderMessage("bot", "⚠️ حدث خطأ: " + err.message);
     }
 
-    history.forEach(msg => renderMessage(msg.role, msg.text));
+    localStorage.setItem("chat-history", JSON.stringify(history));
+  });
 
-    async function initModel() {
-      renderMessage("bot", "⏳ جاري تحميل النموذج...");
-      window.generator = await pipeline("text2text-generation", "Xenova/LaMini-Flan-T5-248M");
-      renderMessage("bot", "✅ تم تحميل المساعد، اسألني ما تشاء!");
-    }
-
-    form.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const userText = promptInput.value.trim();
-      if (!userText) return;
-
-      renderMessage("user", userText);
-      history.push({ role: "user", text: userText });
-
-      promptInput.value = "";
-
-      const thinking = document.createElement("div");
-      thinking.className = "message bot";
-      thinking.textContent = "... جاري التفكير";
-      chat.appendChild(thinking);
-      chat.scrollTop = chat.scrollHeight;
-
-      try {
-        const output = await window.generator(userText, { max_new_tokens: 100 });
-        chat.removeChild(thinking);
-        renderMessage("bot", output[0].generated_text);
-        history.push({ role: "bot", text: output[0].generated_text });
-      } catch (err) {
-        chat.removeChild(thinking);
-        renderMessage("bot", "⚠️ حدث خطأ: " + err.message);
-      }
-
-      localStorage.setItem("chat-history", JSON.stringify(history));
-    });
-
-    initModel();
-  </script></body>
+  initModel();
+</script> </body>
 </html>
