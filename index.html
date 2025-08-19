@@ -101,33 +101,32 @@
     }
 
     form.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const userText = promptInput.value.trim();
-      if (!userText) return;
+  e.preventDefault();
+  const userText = promptInput.value.trim();
+  if (!userText) return;
 
-      renderMessage("user", userText);
-      history.push({ role: "user", text: userText });
-      promptInput.value = "";
+  renderMessage("user", userText);
+  history.push({ role: "user", text: userText });
+  promptInput.value = "";
 
-      const thinking = document.createElement("div");
-      thinking.className = "message bot";
-      thinking.textContent = "... جاري التفكير";
-      chat.appendChild(thinking);
-      chat.scrollTop = chat.scrollHeight;
+  const thinking = document.createElement("div");
+  thinking.className = "message bot";
+  thinking.textContent = "... جاري التفكير";
+  chat.appendChild(thinking);
+  chat.scrollTop = chat.scrollHeight;
 
-      try {
-        const output = await generator(userText, { max_new_tokens: 100 });
-        chat.removeChild(thinking);
-        renderMessage("bot", output[0].generated_text);
-        history.push({ role: "bot", text: output[0].generated_text });
-      } catch (err) {
-        chat.removeChild(thinking);
-        renderMessage("bot", "⚠️ حدث خطأ: " + err.message);
-      }
+  try {
+    const output = await generator(userText, { max_new_tokens: 100 }); // ✅ كده مظبوط
+    chat.removeChild(thinking);
+    renderMessage("bot", output[0].generated_text);
+    history.push({ role: "bot", text: output[0].generated_text });
+  } catch (err) {
+    chat.removeChild(thinking);
+    renderMessage("bot", "⚠️ حدث خطأ: " + err.message);
+  }
 
-      localStorage.setItem("chat-history", JSON.stringify(history));
-    });
-
+  localStorage.setItem("chat-history", JSON.stringify(history));
+});
     initModel();
   </script>
 
