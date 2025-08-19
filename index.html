@@ -1,107 +1,143 @@
-<!doctype html>
-
-<html lang="ar" dir="rtl">
+<!DOCTYPE html>
+<html lang="ar">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>مساعدي الذكي – Zyneo</title>
-  <link rel="manifest" href="manifest.json" />
-  <meta name="theme-color" content="#0b1220" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>مساعدي الذكي</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0b1220">
   <style>
-    :root {
-      --bg: #0b1220;
-      --panel: #0f172a;
-      --text: #e2e8f0;
-      --accent: #22c55e;
-      --bubble-user: #1e293b;
-      --bubble-bot: #0b3d2e;
-    }
-    * { box-sizing: border-box; }
     body {
       margin: 0;
-      font-family: system-ui, -apple-system, Cairo, Arial;
-      background: var(--bg);
-      color: var(--text);
+      font-family: sans-serif;
+      background: #0b1220;
+      color: #fff;
       display: flex;
       flex-direction: column;
       height: 100vh;
     }
-    .app { display: flex; flex-direction: column; flex: 1; }
-    .app__header { padding: 12px; background: var(--panel); text-align: center; }
-    .chat { flex: 1; padding: 12px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
-    .message { padding: 10px 14px; border-radius: 12px; max-width: 75%; line-height: 1.5; }
-    .message.user { align-self: flex-end; background: var(--bubble-user); }
-    .message.bot { align-self: flex-start; background: var(--bubble-bot); }
-    .composer { display: flex; border-top: 1px solid #222; }
-    .input { flex: 1; padding: 10px; border: none; outline: none; background: #1e293b; color: var(--text); }
-    .btn { background: var(--accent); border: none; padding: 10px 16px; cursor: pointer; color: white; font-weight: bold; }
+    header {
+      background: #111a33;
+      padding: 1rem;
+      text-align: center;
+      font-weight: bold;
+    }
+    #chat {
+      flex: 1;
+      overflow-y: auto;
+      padding: 1rem;
+    }
+    .message {
+      margin: .5rem 0;
+      padding: .5rem .75rem;
+      border-radius: 10px;
+      max-width: 75%;
+      word-wrap: break-word;
+    }
+    .user {
+      background: #2563eb;
+      margin-left: auto;
+    }
+    .bot {
+      background: #374151;
+      margin-right: auto;
+    }
+    form {
+      display: flex;
+      padding: .5rem;
+      background: #111a33;
+    }
+    input {
+      flex: 1;
+      padding: .5rem;
+      border: none;
+      border-radius: 8px;
+    }
+    button {
+      margin-left: .5rem;
+      padding: .5rem 1rem;
+      border: none;
+      border-radius: 8px;
+      background: #2563eb;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+    }
   </style>
 </head>
 <body>
-  <div class="app">
-    <header class="app__header">
-      <h1>🤖 Vex – Open Source Assistant</h1>
-    </header><main class="chat" id="chat"></main>
+  <header>🤖 مساعدي الذكي</header>
+  <main id="chat"></main>
+  <form id="composer">
+    <input type="text" id="prompt" placeholder="اكتب رسالتك..." autocomplete="off">
+    <button type="submit">إرسال</button>
+  </form>
 
-<form id="composer" class="composer">
-  <input id="prompt" class="input" placeholder="اكتب سؤالك..." autocomplete="off" />
-  <button id="sendBtn" class="btn" type="submit">إرسال</button>
-</form>
+  <!-- مكتبة الذكاء الاصطناعي -->
+  <script type="module">
+    import { pipeline } from "https://cdn.jsdelivr.net/npm/@xenova/transformers@2.5.1";
 
-  </div> <script type="module">
-  import { pipeline } from "https://cdn.jsdelivr.net/npm/@xenova/transformers@2.5.1";
+    const chat = document.getElementById("chat");
+    const form = document.getElementById("composer");
+    const promptInput = document.getElementById("prompt");
 
-  const chat = document.getElementById("chat");
-  const form = document.getElementById("composer");
-  const promptInput = document.getElementById("prompt");
+    let history = JSON.parse(localStorage.getItem("chat-history") || "[]");
+    let generator = null;
 
-  let history = JSON.parse(localStorage.getItem("chat-history") || "[]");
-  let generator = null;
-
-  function renderMessage(role, text) {
-    const div = document.createElement("div");
-    div.className = `message ${role}`;
-    div.textContent = text;
-    chat.appendChild(div);
-    chat.scrollTop = chat.scrollHeight;
-  }
-
-  history.forEach(msg => renderMessage(msg.role, msg.text));
-
-  async function initModel() {
-    renderMessage("bot", "⏳ جاري تحميل النموذج...");
-    generator = await pipeline("text2text-generation", "Xenova/LaMini-Flan-T5-248M");
-    renderMessage("bot", "✅ تم تحميل المساعد، اسألني ما تشاء!");
-  }
-
-  form.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const userText = promptInput.value.trim();
-    if (!userText) return;
-
-    renderMessage("user", userText);
-    history.push({ role: "user", text: userText });
-    promptInput.value = "";
-
-    const thinking = document.createElement("div");
-    thinking.className = "message bot";
-    thinking.textContent = "... جاري التفكير";
-    chat.appendChild(thinking);
-    chat.scrollTop = chat.scrollHeight;
-
-    try {
-      const output = await generator(userText, { max_new_tokens: 100 }); // ✅ التصحيح هنا
-      chat.removeChild(thinking);
-      renderMessage("bot", output[0].generated_text);
-      history.push({ role: "bot", text: output[0].generated_text });
-    } catch (err) {
-      chat.removeChild(thinking);
-      renderMessage("bot", "⚠️ حدث خطأ: " + err.message);
+    function renderMessage(role, text) {
+      const div = document.createElement("div");
+      div.className = `message ${role}`;
+      div.textContent = text;
+      chat.appendChild(div);
+      chat.scrollTop = chat.scrollHeight;
     }
 
-    localStorage.setItem("chat-history", JSON.stringify(history));
-  });
+    history.forEach(msg => renderMessage(msg.role, msg.text));
 
-  initModel();
-</script> </body>
+    async function initModel() {
+      renderMessage("bot", "⏳ جاري تحميل النموذج...");
+      generator = await pipeline("text2text-generation", "Xenova/LaMini-Flan-T5-248M");
+      renderMessage("bot", "✅ تم تحميل المساعد، اسألني ما تشاء!");
+    }
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const userText = promptInput.value.trim();
+      if (!userText) return;
+
+      renderMessage("user", userText);
+      history.push({ role: "user", text: userText });
+      promptInput.value = "";
+
+      const thinking = document.createElement("div");
+      thinking.className = "message bot";
+      thinking.textContent = "... جاري التفكير";
+      chat.appendChild(thinking);
+      chat.scrollTop = chat.scrollHeight;
+
+      try {
+        const output = await generator(userText, { max_new_tokens: 100 });
+        chat.removeChild(thinking);
+        renderMessage("bot", output[0].generated_text);
+        history.push({ role: "bot", text: output[0].generated_text });
+      } catch (err) {
+        chat.removeChild(thinking);
+        renderMessage("bot", "⚠️ حدث خطأ: " + err.message);
+      }
+
+      localStorage.setItem("chat-history", JSON.stringify(history));
+    });
+
+    initModel();
+  </script>
+
+  <!-- تسجيل الـ Service Worker -->
+  <script>
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("service-worker.js")
+        .then(() => console.log("✅ Service Worker مسجّل"))
+        .catch(err => console.error("⚠️ Service Worker فشل:", err));
+    }
+  </script>
+</body>
 </html>
